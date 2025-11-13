@@ -1,8 +1,9 @@
 package edu.bsu.cs222.gui.controllers;
 
-import edu.bsu.cs222.League;
-import edu.bsu.cs222.Player;
-import edu.bsu.cs222.Position;
+import edu.bsu.cs222.model.League;
+import edu.bsu.cs222.model.Player;
+import edu.bsu.cs222.model.Position;
+import edu.bsu.cs222.gui.ErrorModal;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -11,13 +12,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.beans.value.ChangeListener;
 
 import java.io.IOException;
 import java.util.Objects;
-import static edu.bsu.cs222.Position.*;
+import static edu.bsu.cs222.model.Position.*;
 
 public class PlayersViewCellController {
     @FXML private Button addPlayerButton;
@@ -28,7 +30,7 @@ public class PlayersViewCellController {
     private PlayersViewController parent;
     private Player currentPlayer;
 
-    private static final Image DEFAULT = new Image (Objects.requireNonNull(PlayersViewCellController.class.getResource("/default_avatar.jpg")).toExternalForm(), 70, 70, true, true);
+    private static final Image DEFAULT = new Image (Objects.requireNonNull(PlayersViewCellController.class.getResource("/images/default_avatar.jpg")).toExternalForm(), 70, 70, true, true);
 
     private String lastUrl;
 
@@ -62,7 +64,7 @@ public class PlayersViewCellController {
 
         headshot.setImage(DEFAULT);
 
-        if (imageUrl.equals("not found") ||imageUrl.isBlank()){return;}
+        if (imageUrl.equals("Not Found") ||imageUrl.isBlank()){return;}
 
         Image headshotImage = new Image(imageUrl, 70, 70, true, true, true);
 
@@ -94,23 +96,15 @@ public class PlayersViewCellController {
         League.Team team = parent.getCurrentTeam();
         Stage creator = new Stage();
         creator.initModality(Modality.APPLICATION_MODAL);
-        FXMLLoader loader;
-        Parent root;
 
         if (team == null){
-            creator.setTitle("Error");
-            loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/FXML_Files/ErrorModal.fxml")));
-            root = loader.load();
-            creator.setScene(new Scene(root));
-
-            Label errorLbl = (Label) root.lookup("#errorLbl");
-            errorLbl.setText("Please select a team, before attempting to add a player");
+            ErrorModal.throwErrorModal("Please select a team before attempting to add a player", parent);
         }
         else {
             creator.setTitle("Player Adder");
 
-            loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/FXML_Files/PlayerAdderModal.fxml")));
-            root = loader.load();
+            FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/PlayerAdderModal.fxml")));
+            Parent root = loader.load();
 
             creator.setScene(new Scene(root));
 
@@ -136,22 +130,28 @@ public class PlayersViewCellController {
             teButton.setOnAction(e -> addPlayer(TE, creator));
             kButton.setOnAction(e -> addPlayer(K, creator));
             flexButton.setOnAction(e -> addPlayer(FLEX, creator));
+
+            creator.setOnCloseRequest(event ->{
+                parent.setDisable(false);
+                creator.close();
+            });
+
+            Button closeButton = (Button) root.lookup("#cancelButton");
+
+            closeButton.setOnAction(e -> {
+                parent.setDisable(false);
+                creator.close();
+            });
+
+            creator.getScene().setOnKeyPressed(event -> {
+                if (event.getCode() == KeyCode.ESCAPE){
+                    parent.setDisable(false);
+                    creator.close();
+                }
+            });
+
+            creator.showAndWait();
         }
-
-
-        creator.setOnCloseRequest(event ->{
-            parent.setDisable(false);
-            creator.close();
-        });
-
-        Button closeButton = (Button) root.lookup("#closeButton");
-
-        closeButton.setOnAction(e -> {
-            parent.setDisable(false);
-            creator.close();
-        });
-
-        creator.showAndWait();
     }
 
     public void setParentController(PlayersViewController parent) {
@@ -176,13 +176,13 @@ public class PlayersViewCellController {
         addPlayerButton.setDisable(team.getPlayerNameList().contains(currentPlayer.getName()));
     }
 
-    public void viewPlayerStats() throws IOException {
+    public void viewPlayerStats() throws IOException, InterruptedException {
             parent.setDisable(true);
             Stage creator = new Stage();
             creator.initModality(Modality.APPLICATION_MODAL);
             creator.setTitle("View Player Stats");
 
-            FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/FXML_Files/PlayerStatsModal.fxml")));
+            FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/PlayerStatsModal.fxml")));
             Parent root = loader.load();
 
             creator.setScene(new Scene(root));
@@ -200,6 +200,13 @@ public class PlayersViewCellController {
             creator.setOnCloseRequest(event -> {
                 parent.setDisable(false);
                 creator.close();
+            });
+
+            creator.getScene().setOnKeyPressed(event -> {
+                if (event.getCode() == KeyCode.ESCAPE){
+                    parent.setDisable(false);
+                    creator.close();
+                }
             });
 
             creator.showAndWait();

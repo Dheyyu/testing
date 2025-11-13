@@ -1,6 +1,6 @@
 package edu.bsu.cs222.gui.controllers;
 
-import edu.bsu.cs222.Player;
+import edu.bsu.cs222.model.Player;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -9,6 +9,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
@@ -25,7 +26,7 @@ public class TeamViewCellController {
     @FXML private Label positionLbl;
     private String lastUrl;
 
-    private static final Image DEFAULT = new Image (Objects.requireNonNull(PlayersViewCellController.class.getResource("/default_avatar.jpg")).toExternalForm(), 70, 70, true, true);
+    private static final Image DEFAULT = new Image (Objects.requireNonNull(PlayersViewCellController.class.getResource("/images/default_avatar.jpg")).toExternalForm(), 70, 70, true, true);
 
     @FXML
     public void initialize(){
@@ -88,12 +89,12 @@ public class TeamViewCellController {
         this.parent = parent;
     }
 
-    public void viewPlayerStats() throws IOException {
+    public void viewPlayerStats() throws IOException, InterruptedException {
         Stage creator = new Stage();
         creator.initModality(Modality.APPLICATION_MODAL);
         creator.setTitle("View Player Stats");
 
-        FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/FXML_Files/PlayerStatsModal.fxml")));
+        FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/PlayerStatsModal.fxml")));
         Parent root = loader.load();
 
         creator.setScene(new Scene(root));
@@ -106,6 +107,12 @@ public class TeamViewCellController {
         cancelButton.setOnAction(e -> creator.close());
 
         creator.setOnCloseRequest(event -> creator.close());
+
+        creator.getScene().setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ESCAPE){
+                creator.close();
+            }
+        });
 
         creator.showAndWait();
     }

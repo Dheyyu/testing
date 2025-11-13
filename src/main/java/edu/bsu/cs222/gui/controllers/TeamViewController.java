@@ -1,19 +1,18 @@
 package edu.bsu.cs222.gui.controllers;
 
-import edu.bsu.cs222.GraphicalUserInterface;
-import edu.bsu.cs222.League;
-import edu.bsu.cs222.Player;
-import edu.bsu.cs222.Position;
-import edu.bsu.cs222.gui.TeamViewCell;
+import edu.bsu.cs222.gui.GraphicalUserInterface;
+import edu.bsu.cs222.model.League;
+import edu.bsu.cs222.model.Player;
+import edu.bsu.cs222.model.Position;
+import edu.bsu.cs222.gui.ErrorModal;
+import edu.bsu.cs222.gui.list_cells.TeamViewCell;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
+
+import javafx.scene.control.*;
 
 import java.io.IOException;
 import java.util.*;
@@ -97,6 +96,12 @@ public class TeamViewController {
         }
         else {
             playerList.setAll(getCurrentTeam().getPlayerMap().keySet());
+            if (team.getCalculatedScore() == -1){
+                scoreButton.setText("Calculate");
+            }
+            else {
+                scoreButton.setText(team.getCalculatedScore() + "pts");
+            }
         }
     }
 
@@ -145,15 +150,35 @@ public class TeamViewController {
     }
 
     public void openPlayersView() throws IOException {
-        GraphicalUserInterface.setRoot("/FXML_Files/PlayersView.fxml");
+        GraphicalUserInterface.setRoot("/fxml_files/PlayersView.fxml");
     }
 
     public League.Team getCurrentTeam() {
         String teamString = teamSelector.getValue();
-        return (teamString.equals("None") ? null : Objects.requireNonNull(getLeagueByName(leagueSelector.getValue())).getTeamByName(teamString));
+        return (teamString == null || teamString.equals("None") ? null : Objects.requireNonNull(getLeagueByName(leagueSelector.getValue())).getTeamByName(teamString));
     }
 
-    public void calculateTeamScore() {
-        scoreButton.setText("10pts");
+    public void calculateTeamScore() throws IOException, InterruptedException {
+        League.Team team = getCurrentTeam();
+
+        if (team == null){
+            ErrorModal.throwErrorModal("Select a team", null);
+        }
+        else if (team.getPlayerMap().isEmpty()){
+            ErrorModal.throwErrorModal("Add players to team", null);
+        }
+        else{
+            double score = 0;
+            for (Player player : playerList){
+                boolean networkError = player.setStatsWithAPI();
+                if (networkError){
+                    ErrorModal.throwErrorModal("Network Error", null);
+                    return;
+                }
+                score += player.getSeasonScore();
+            }
+            team.setCalculatedScore(score);
+            scoreButton.setText(String.format("%.1fpts", score));
+        }
     }
 }
