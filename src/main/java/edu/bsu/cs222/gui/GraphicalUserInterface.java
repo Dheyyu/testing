@@ -8,38 +8,92 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 
 import static edu.bsu.cs222.model.Position.*;
 
 public class GraphicalUserInterface extends Application {
     private static Scene scene;
     private static final ArrayList<League> leagueList = new ArrayList<>();
-
+    
     @Override
-    public void start(Stage stage) throws IOException, InterruptedException {
-        boolean networkError = PlayerRetriever.getPlayersFromJsonOrApi();
-        if (networkError){
-            ErrorModal.throwErrorModal("Network Error", null);
-        }
-        else {
-            leagueList.add(new League("Default", new ArrayList<>(List.of(QB, WR, WR, RB, RB, TE, FLEX, K))));
-            FXMLLoader playersViewLoader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/PlayersView.fxml")));
-            scene = new Scene(playersViewLoader.load(), 700, 500);
+    public void start(Stage stage) {
+        if (PlayerRetriever.getKeyLoaded()){
+            try {
+                PlayerRetriever.getPlayersFromJsonOrApi();
+                HashMap<String, Double> defaultCoefficientMap = getDefaultCoefficientMap();
 
-            stage.setTitle("MyLeague");
-            stage.setScene(scene);
-            stage.show();
+                Path savedLeaguesPath = Paths.get("SavedFiles/SavedLeagues");
 
-            stage.setOnCloseRequest(event -> stage.close());
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(savedLeaguesPath)){
+                    boolean found = false;
+                    for (Path file: stream) {
+                        String jsonData = Files.readString(file);
+                        leagueList.add(new League(jsonData));
+                        found = true;
+                    }
+                    if (!found) {
+                        throw new IOException();
+                    }
+                } catch (IOException _){
+                    leagueList.add(new League("Default", new ArrayList<>(List.of(QB, WR, WR, RB, RB, TE, FLEX, K)), defaultCoefficientMap));
+                }
+
+                FXMLLoader playersViewLoader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/playersView/PlayersView.fxml")));
+                try {
+                    scene = new Scene(playersViewLoader.load(), 700, 500);
+                } catch (IOException _) {
+                    System.err.println("PlayersView.fxml not found");
+                    System.exit(1);
+                }
+
+                stage.setTitle("MyLeague");
+                stage.setScene(scene);
+                stage.show();
+
+                stage.setOnCloseRequest(_ -> stage.close());
+            }
+            catch (IOException _){
+                ErrorModal.throwErrorModal("Network Error", null);
+            }
+            catch (InterruptedException _) {
+                System.err.println("Program Interrupted");
+                System.exit(1);
+            }
+        } else {
+            ErrorModal.throwErrorModal("Add your API key to .env.example, and rename file to .env", null);
         }
     }
 
-    public static void setRoot(String fxmlFile) throws IOException {
-        Parent root = FXMLLoader.load(Objects.requireNonNull(GraphicalUserInterface.class.getResource(fxmlFile)));
-        scene.setRoot(root);
+    private HashMap<String, Double> getDefaultCoefficientMap() {
+        HashMap<String, Double> defaultCoefficientMap = new HashMap<>();
+        defaultCoefficientMap.put("rushYards", .1);
+        defaultCoefficientMap.put("recYards", .1);
+        defaultCoefficientMap.put("passYards", .04);
+        defaultCoefficientMap.put("rushTds", 7.0);
+        defaultCoefficientMap.put("recTds", 7.0);
+        defaultCoefficientMap.put("passTds", 4.0);
+        defaultCoefficientMap.put("receptions", 1.0);
+        defaultCoefficientMap.put("interceptions", -2.0);
+        defaultCoefficientMap.put("fumbles", -2.0);
+        defaultCoefficientMap.put("xpMade", 2.0);
+        defaultCoefficientMap.put("fgMade", 4.0);
+        return defaultCoefficientMap;
+    }
+
+    public static void setRoot(String fxmlFile) {
+        try {
+            Parent root = FXMLLoader.load(Objects.requireNonNull(GraphicalUserInterface.class.getResource(fxmlFile)));
+            scene.setRoot(root);
+        }
+        catch (IOException _){
+            System.err.printf("%s not found", fxmlFile);
+            System.exit(1);
+        }
     }
 
     public static ArrayList<League> getLeagueList(){
@@ -48,5 +102,9 @@ public class GraphicalUserInterface extends Application {
 
     public static void addLeague(League league){
         leagueList.add(league);
+    }
+
+    public static void removeLeague(League league){
+        leagueList.remove(league);
     }
 }

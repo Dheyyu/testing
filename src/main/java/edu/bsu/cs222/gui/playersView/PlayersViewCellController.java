@@ -1,0 +1,248 @@
+package edu.bsu.cs222.gui.playersView;
+
+import edu.bsu.cs222.gui.playersView.playerStats.PlayerStatsModalController;
+import edu.bsu.cs222.model.League;
+import edu.bsu.cs222.model.Player;
+import edu.bsu.cs222.model.Position;
+import edu.bsu.cs222.gui.ErrorModal;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.beans.value.ChangeListener;
+
+import java.io.IOException;
+import java.util.Objects;
+import static edu.bsu.cs222.model.Position.*;
+
+public class PlayersViewCellController {
+    @FXML private Button addPlayerButton;
+    @FXML private ImageView headshot;
+    @FXML private Label nameLbl;
+    @FXML private Label detailsLbl;
+    @FXML private Label statsLbl;
+    private PlayersViewController parent;
+    private Player currentPlayer;
+
+    private static final Image DEFAULT = new Image (Objects.requireNonNull(PlayersViewCellController.class.getResource("/images/default_avatar.jpg")).toExternalForm(), 70, 70, true, true);
+
+    private String lastUrl;
+
+    @FXML
+    public void initialize(){
+        headshot.setFitWidth(70);
+        headshot.setFitHeight(70);
+        headshot.setPreserveRatio(true);
+        headshot.setSmooth(true);
+    }
+
+    public void setData(Player player){
+        currentPlayer = player;
+        String playerTeam = (player.getNonScoringStats().get("team") == null ? "NA" : player.getNonScoringStats().get("team"));
+        String playerPosition = (player.getPosition() == null ? "NA" : player.getPosition().toString());
+        String playerNumber = (player.getNonScoringStats().get("jerseyNumber") == null ? "NA" : player.getNonScoringStats().get("jerseyNumber"));
+        String playerExp = (player.getNonScoringStats().get("experience") == null ? "NA" : player.getNonScoringStats().get("experience"));
+        String playerHeight = (player.getNonScoringStats().get("height") == null ? "NA" : player.getNonScoringStats().get("height"));
+        String playerWeight = (player.getNonScoringStats().get("weight") == null ? "NA" : player.getNonScoringStats().get("weight"));
+        String playerSchool = (player.getNonScoringStats().get("school") == null ? "NA" : player.getNonScoringStats().get("school"));
+
+        nameLbl.setText(String.format("%s #%s", player.getNonScoringStats().get("name"), playerNumber));
+        detailsLbl.setText(String.format("%s | %s | %s", playerTeam, playerPosition, playerSchool));
+        statsLbl.setText(String.format("Exp: %syr | %s %slbs", playerExp, playerHeight, playerWeight));
+
+        String imageUrl = (player.getNonScoringStats().get("headshot") == null ? "" : player.getNonScoringStats().get("headshot"));
+
+        League.Team currentTeam = parent.getCurrentTeam();
+        if (currentTeam == null) {addPlayerButton.setDisable(true);}
+
+        if (currentTeam != null ) {
+            addPlayerButton.setDisable(currentTeam.getPlayerNameList().contains(player.getNonScoringStats().get("name")));
+        }
+
+        if (imageUrl.equals(lastUrl)) {return;}
+
+        lastUrl = imageUrl;
+
+        headshot.setImage(DEFAULT);
+
+        if (imageUrl.equals("Not Found") ||imageUrl.isBlank()){return;}
+
+        try {Image headshotImage = new Image(imageUrl, 70, 70, true, true, true);
+
+        headshotImage.progressProperty().addListener((_, _, nv) -> {
+            if (nv.doubleValue() >= 1.0 && !headshotImage.isError() && imageUrl.equals(lastUrl)){
+                headshot.setImage(headshotImage);
+            }
+        });
+
+        headshotImage.errorProperty().addListener((_, _, isErr) -> {
+            if (isErr && imageUrl.equals(lastUrl)) {
+                headshot.setImage(DEFAULT);
+            }
+        });
+
+        if (!headshotImage.isBackgroundLoading() && imageUrl.equals(lastUrl)){
+            headshot.setImage(headshotImage);
+        } }
+        catch (IllegalArgumentException ignored){}
+    }
+
+    public void playerAdder() {
+        parent.setDisable(true);
+        League.Team team = parent.getCurrentTeam();
+        Stage creator = new Stage();
+        creator.initModality(Modality.APPLICATION_MODAL);
+        Parent root = null;
+
+        if (team == null){
+            ErrorModal.throwErrorModal("Please select a team before attempting to add a player", parent);
+        }
+        else {
+            creator.setTitle("Player Adder");
+
+            FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/playersView/teamAndLeagueCreation/PlayerAdderModal.fxml")));
+
+            try {
+                root = loader.load();
+            }
+            catch (IOException _){
+                System.out.println("PlayerAdderModal.fxml not found");
+                System.exit(1);
+            }
+
+            creator.setScene(new Scene(root));
+
+            Button qbButton = (Button) root.lookup("#qbButton");
+            Button rbButton = (Button) root.lookup("#rbButton");
+            Button wrButton = (Button) root.lookup("#wrButton");
+            Button teButton = (Button) root.lookup("#teButton");
+            Button kButton = (Button) root.lookup("#kButton");
+            Button flexButton = (Button) root.lookup("#flexButton");
+
+            for (Position position: team.getFreePositions()) {
+                if (position == QB && currentPlayer.getPosition() == QB) {
+                    qbButton.setDisable(false);
+                }
+                if (position == RB && currentPlayer.getPosition() == RB) {
+                    rbButton.setDisable(false);
+                }
+                if (position == WR && currentPlayer.getPosition() == WR) {
+                    wrButton.setDisable(false);
+                }
+                if (position == TE && currentPlayer.getPosition() == TE) {
+                    teButton.setDisable(false);
+                }
+                if (position == K && currentPlayer.getPosition() == K) {
+                    kButton.setDisable(false);
+                }
+                if (position == FLEX && currentPlayer.getPosition() == RB
+                        || position == FLEX && currentPlayer.getPosition() == WR
+                        || position == FLEX && currentPlayer.getPosition() == TE){
+                    flexButton.setDisable(false);
+                }
+            }
+
+            qbButton.setOnAction(_ -> addPlayer(QB, creator));
+            rbButton.setOnAction(_ -> addPlayer(RB, creator));
+            wrButton.setOnAction(_ -> addPlayer(WR, creator));
+            teButton.setOnAction(_ -> addPlayer(TE, creator));
+            kButton.setOnAction(_ -> addPlayer(K, creator));
+            flexButton.setOnAction(_ -> addPlayer(FLEX, creator));
+
+            creator.setOnCloseRequest(_ ->{
+                parent.setDisable(false);
+                creator.close();
+            });
+
+            Button closeButton = (Button) root.lookup("#cancelButton");
+
+            closeButton.setOnAction( _ -> {
+                parent.setDisable(false);
+                creator.close();
+            });
+
+            creator.getScene().setOnKeyPressed(event -> {
+                if (event.getCode() == KeyCode.ESCAPE){
+                    event.consume();
+                    parent.setDisable(false);
+                    creator.close();
+                }
+            });
+
+            creator.showAndWait();
+        }
+    }
+
+    public void setParentController(PlayersViewController parent) {
+        this.parent = parent;
+
+        ChangeListener<League.Team> teamListener = (_, _, newVal) -> updateAddButton(newVal);
+        parent.currentTeamProperty().addListener(teamListener);
+    }
+
+    private void addPlayer(Position position, Stage stage){
+        parent.getCurrentTeam().addPlayer(currentPlayer, position);
+        parent.setDisable(false);
+        stage.close();
+        addPlayerButton.setDisable(true);
+    }
+
+    private void updateAddButton(League.Team team){
+        if (team == null) {
+            addPlayerButton.setDisable(true);
+            return;
+        }
+        addPlayerButton.setDisable(team.getPlayerNameList().contains(currentPlayer.getNonScoringStats().get("name")));
+    }
+
+    public void viewPlayerStats() {
+            parent.setDisable(true);
+            Stage creator = new Stage();
+            creator.initModality(Modality.APPLICATION_MODAL);
+            creator.setTitle("View Player Stats");
+            Parent root = null;
+
+            FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/fxml_files/playersView/playerStats/PlayerStatsModal.fxml")));
+
+            try {
+                root = loader.load();
+            } catch (IOException _) {
+                System.err.println("PlayerStatsModal.fxml not found");
+                System.exit(1);
+            }
+
+            creator.setScene(new Scene(root));
+
+            PlayerStatsModalController controller = loader.getController();
+            controller.setPlayer(currentPlayer);
+
+            Button cancelButton = (Button) root.lookup("#cancelButton");
+
+            cancelButton.setOnAction(_ -> {
+                parent.setDisable(false);
+                creator.close();
+            });
+
+            creator.setOnCloseRequest(_ -> {
+                parent.setDisable(false);
+                creator.close();
+            });
+
+            creator.getScene().setOnKeyPressed(event -> {
+                if (event.getCode() == KeyCode.ESCAPE){
+                    event.consume();
+                    parent.setDisable(false);
+                    creator.close();
+                }
+            });
+
+            creator.showAndWait();
+    }
+}

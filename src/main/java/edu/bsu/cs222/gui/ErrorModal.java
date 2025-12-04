@@ -1,6 +1,6 @@
 package edu.bsu.cs222.gui;
 
-import edu.bsu.cs222.gui.controllers.PlayersViewController;
+import edu.bsu.cs222.gui.playersView.PlayersViewController;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -14,27 +14,33 @@ import java.io.IOException;
 import java.util.Objects;
 
 public class ErrorModal {
-    public static void throwErrorModal(String errorMessage, Object parent) throws IOException {
+    public static void throwErrorModal(String errorMessage, Object parent) {
         Stage stage = new Stage();
         stage.initModality(Modality.APPLICATION_MODAL);
         boolean playersView = parent != null && parent.getClass() == PlayersViewController.class;
+        Parent root = null;
 
         stage.setTitle("Error");
         FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(ErrorModal.class.getResource("/fxml_files/ErrorModal.fxml")));
-        Parent root = loader.load();
+        try {
+            root = loader.load();
+        } catch (IOException _) {
+            System.err.println("ErrorModal.fxml not found");
+            System.exit(1);
+        }
         stage.setScene(new Scene(root));
 
         Label errorLbl = (Label) root.lookup("#errorLbl");
         errorLbl.setText(errorMessage);
 
-        stage.setOnCloseRequest(event ->{
+        stage.setOnCloseRequest(_ ->{
             stage.close();
             if (playersView) {((PlayersViewController) parent).setDisable(false);}
         });
 
         Button closeButton = (Button) root.lookup("#closeButton");
 
-        closeButton.setOnAction(e -> {
+        closeButton.setOnAction(_ -> {
             stage.close();
             if (playersView) {
                 ((PlayersViewController) parent).setDisable(false);

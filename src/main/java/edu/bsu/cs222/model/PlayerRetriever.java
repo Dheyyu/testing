@@ -1,67 +1,65 @@
 package edu.bsu.cs222.model;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import io.github.cdimascio.dotenv.DotenvException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
 import java.net.http.*;
-import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Objects;
+import java.util.HashMap;
 
 public class PlayerRetriever {
     private static ArrayList<Player> playerArrayList;
-    private static final String API_KEY = Dotenv.load().get("API_KEY");
+    private static String API_KEY;
+    private static boolean keyLoaded = true;
 
-    public static boolean createAndSavePlayerListFromApi() throws InterruptedException, IOException {
+    static {
+        try {
+            API_KEY = Dotenv.load().get("API_KEY");
+        } catch (DotenvException _) {
+            System.out.println("Add your API key to .env.example, and rename file to .env");
+            keyLoaded = false;
+        }
+    }
+
+    public static void createAndSavePlayerListFromApi() throws IOException, InterruptedException {
         String response = getPlayersFromApi();
-        if (response.equals("Network Error")){
-            //Can't be tested
-            return true;
+        if (response != null && !response.isBlank()){
+            createPlayerList(response);
+            savePlayerListToJson();
         }
-        createPlayerList(response);
-        savePlayerListToJson();
-        return false;
     }
 
-    public static boolean getPlayersFromJsonOrApi() throws IOException, InterruptedException {
-        File jsonFile = new File("src/main/resources/PlayerList.json");
-        if (jsonFile.exists()){
+    public static void getPlayersFromJsonOrApi() throws IOException, InterruptedException {
+        try{
             createPlayerList(getPlayersFromJson());
-            return false;
         }
-        else {
-            return createAndSavePlayerListFromApi();
+        catch (IOException _){
+            createAndSavePlayerListFromApi();
         }
     }
 
-    public static String getPlayersFromApi() throws InterruptedException {
+    public static String getPlayersFromApi() throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerList"))
                 .header("x-rapidapi-key", API_KEY)
                 .header("x-rapidapi-host", "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com")
                 .method("GET", HttpRequest.BodyPublishers.noBody())
                 .build();
-        try {
-            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-            return response.body();
-        }
-        catch (IOException e){
-            //Can't be tested
-            return "Network Error";
-        }
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body();
     }
 
     public static String getPlayersFromJson() throws IOException {
-        InputStream sampleFile = Thread.currentThread().getContextClassLoader()
-                .getResourceAsStream("PlayerList.json");
-        return new String(Objects.requireNonNull(sampleFile).readAllBytes(), Charset.defaultCharset());
+        Path jsonPath = Path.of("SavedFiles/PlayerList.json");
+        return Files.readString(jsonPath);
     }
 
     public static void createPlayerList(String jsonData) {
@@ -70,8 +68,10 @@ public class PlayerRetriever {
         playerArrayList = new ArrayList<>();
         for (int i = 0; i < players.length(); ++i){
             JSONObject player = players.getJSONObject(i);
+            HashMap<String, String> playerInfo = new HashMap<>();
             String posString = player.getString("pos");
-            String espnName = player.getString("espnName");
+
+            String name = player.getString("espnName");
 
             if (posString.equals("FB")){
                 posString = "RB";
@@ -81,7 +81,7 @@ public class PlayerRetriever {
                 posString = "K";
             }
 
-            if (espnName.equals("Taysom Hill")){
+            if (name.equals("Taysom Hill")){
                 posString = "TE";
             }
 
@@ -95,43 +95,38 @@ public class PlayerRetriever {
             }
 
             if (posObject != null) {
-                String team = player.getString("team");
-                String jerseyNum = player.getString("jerseyNum");
-                String height = player.getString("height");
-                String weight = player.getString("weight");
-                String school = player.getString("school");
-                String playerID = player.getString("playerID");
-                String teamID = player.getString("teamID");
+                playerInfo.put("playerName", name);
+                playerInfo.put("position", posString);
+                playerInfo.put("team", player.getString("team"));
+                playerInfo.put("jerseyNumber", player.getString("jerseyNum"));
+                playerInfo.put("height", player.getString("height"));
+                playerInfo.put("weight", player.getString("weight"));
+                playerInfo.put("school", player.getString("school"));
+                playerInfo.put("playerID", player.getString("playerID"));
                 String exp = player.getString("exp");
                 if (exp.equals("R")){
                     exp = "0";
                 }
-                JSONObject injury = player.getJSONObject("injury");
+                playerInfo.put("experience", exp);
 
                 String age;
 
                 try {
                     age = player.getString("age");
-                } catch (JSONException e) {
+                } catch (JSONException _) {
                     age = "not found";
                 }
+                playerInfo.put("age", age);
 
-                String bDay;
+                String headshot;
                 try {
-                    bDay = player.getString("bDay");
-                } catch (JSONException e) {
-                    bDay = "not found";
+                    headshot = player.getString("espnHeadshot");
+                } catch (JSONException _) {
+                    headshot = "not found";
                 }
+                playerInfo.put("headshot", headshot);
 
-                String espnHeadshot;
-                try {
-                    espnHeadshot = player.getString("espnHeadshot");
-                } catch (JSONException e) {
-                    espnHeadshot = "not found";
-                }
-
-                Player newPlayer = new Player(espnName, posObject, team, jerseyNum, height, weight, age, bDay,
-                        espnHeadshot, injury, school, playerID, teamID, exp);
+                Player newPlayer = new Player(playerInfo);
 
                 playerArrayList.add(newPlayer);
             }
@@ -142,35 +137,46 @@ public class PlayerRetriever {
         return playerArrayList;
     }
 
-    private static void savePlayerListToJson() throws IOException {
+    private static void savePlayerListToJson() {
         JSONArray playersJsonArray = new JSONArray();
 
         for (Player player: getPlayerArrayList()){
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("espnName", player.getName());
+            jsonObject.put("espnName", player.getNonScoringStats().get("name"));
             jsonObject.put("pos", player.getPosition());
-            jsonObject.put("team", player.getTeam());
-            jsonObject.put("jerseyNum", player.getJerseyNumber());
-            jsonObject.put(("height"), player.getHeight());
-            jsonObject.put("weight", player.getWeight());
-            jsonObject.put("age", player.getAge());
-            jsonObject.put("bDay", player.getbDay());
-            jsonObject.put("espnHeadshot", player.getHeadshot());
-            jsonObject.put("injury", player.getInjury());
-            jsonObject.put("school", player.getSchool());
+            jsonObject.put("team", player.getNonScoringStats().get("team"));
+            jsonObject.put("jerseyNum", player.getNonScoringStats().get("jerseyNumber"));
+            jsonObject.put(("height"), player.getNonScoringStats().get("height"));
+            jsonObject.put("weight", player.getNonScoringStats().get("weight"));
+            jsonObject.put("age", player.getNonScoringStats().get("age"));
+            jsonObject.put("espnHeadshot", player.getNonScoringStats().get("headshot"));
+            jsonObject.put("school", player.getNonScoringStats().get("school"));
             jsonObject.put("playerID", player.getPlayerID());
-            jsonObject.put("teamID", player.getTeamID());
-            jsonObject.put("exp", player.getExperience());
+            jsonObject.put("exp", player.getNonScoringStats().get("experience"));
             playersJsonArray.put(jsonObject);
         }
 
         JSONObject playersJsonObject = new JSONObject();
         playersJsonObject.put("body", playersJsonArray);
 
-        String jsonData = playersJsonObject.toString();
-
-        try(FileWriter file = new FileWriter("src/main/resources/PlayerList.json")){
-            file.write(jsonData);
+        Path savedFilesDir = Paths.get("SavedFiles");
+        if(Files.notExists(savedFilesDir)){
+            try {
+                Files.createDirectory(savedFilesDir);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
+
+        try(BufferedWriter writer = new BufferedWriter(new FileWriter("SavedFiles/PlayerList.json"))){
+            writer.write(playersJsonObject.toString(4));
+        } catch (IOException _) {
+            System.err.println("Couldn't write to file");
+            System.exit(1);
+        }
+    }
+
+    public static boolean getKeyLoaded(){
+        return keyLoaded;
     }
 }

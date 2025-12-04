@@ -15,10 +15,26 @@ import java.util.Objects;
 import static edu.bsu.cs222.model.Position.*;
 
 public class PlayerTest {
+    HashMap<String, Double> getDefaultCoefficientMap(){
+        HashMap<String, Double> defaultCoefficientMap = new HashMap<>();
+        defaultCoefficientMap.put("rushYards", .1);
+        defaultCoefficientMap.put("recYards", .1);
+        defaultCoefficientMap.put("passYards", .04);
+        defaultCoefficientMap.put("rushTds", 7.0);
+        defaultCoefficientMap.put("recTds", 7.0);
+        defaultCoefficientMap.put("passTds", 4.0);
+        defaultCoefficientMap.put("receptions", 1.0);
+        defaultCoefficientMap.put("interceptions", -2.0);
+        defaultCoefficientMap.put("fumbles", -2.0);
+        defaultCoefficientMap.put("xpMade", 2.0);
+        defaultCoefficientMap.put("fgMade", 4.0);
+        return defaultCoefficientMap;
+    }
+
     @Test
-    void getWeekScoreTest() throws InterruptedException {
-        Player burrow = new Player();
-        burrow.setLastScoreDate(LocalDate.now())
+    void getWeekScoreTest() {
+        Player burrow = new Player("Burrow", null);
+        burrow.setLastStatDate(LocalDate.now())
 ;
         HashMap<String, Integer> playerStats = new HashMap<>();
         playerStats.put("weekRushYds", 30);
@@ -36,33 +52,13 @@ public class PlayerTest {
         playerStats.put("weekXpAttempts", 0);
 
         burrow.setPlayerStats(playerStats);
-        Assertions.assertEquals(33, burrow.getWeekScore());
+        Assertions.assertEquals(33, burrow.getWeekScore(getDefaultCoefficientMap()));
     }
+
     @Test
-    void getCompletionPCTTest(){
-        Player burrow = new Player();
-        burrow.setCompletions(25);
-        burrow.setPassAtt(40);
-        Assertions.assertEquals(0.625, burrow.getCompletionPCT());
-    }
-    @Test
-    void getCompletionPCTRoundDownTest(){
-        Player burrow = new Player();
-        burrow.setCompletions(25);
-        burrow.setPassAtt(39);
-        Assertions.assertEquals(0.641, burrow.getCompletionPCT());
-    }
-    @Test
-    void getCompletionPCTRoundUpTest(){
-        Player burrow = new Player();
-        burrow.setCompletions(25);
-        burrow.setPassAtt(37);
-        Assertions.assertEquals(0.676, burrow.getCompletionPCT());
-    }
-    @Test
-    void testKickerPoints() throws InterruptedException {
-        Player youngHoe_Koo = new Player();
-        youngHoe_Koo.setLastScoreDate(LocalDate.now());
+    void testKickerPoints() {
+        Player younghoeKoo = new Player("Younghoe Koo", null);
+        younghoeKoo.setLastStatDate(LocalDate.now());
 
         HashMap<String, Integer> playerStats = new HashMap<>();
         playerStats.put("weekXpAttempts", 3);
@@ -79,15 +75,8 @@ public class PlayerTest {
         playerStats.put("weekInterceptions", 0);
         playerStats.put("weekFumbles", 0);
 
-        youngHoe_Koo.setPlayerStats(playerStats);
-        Assertions.assertEquals(9, youngHoe_Koo.getWeekScore());
-    }
-
-    @Test
-    void testShortNameConstructing(){
-        Player chris = new Player("Chris Burke");
-        Assertions.assertEquals("C. Burke", chris.getShortName());
-
+        younghoeKoo.setPlayerStats(playerStats);
+        Assertions.assertEquals(9, younghoeKoo.getWeekScore(getDefaultCoefficientMap()));
     }
 
     @Test
@@ -124,16 +113,16 @@ public class PlayerTest {
         Assertions.assertTrue(map.containsKey(player1));
     }
 
-    private String readSampleFileAsString(String file) throws NullPointerException, IOException {
+    private String readSampleFileAsString() throws NullPointerException, IOException {
         InputStream sampleFile = Thread.currentThread().getContextClassLoader()
-                .getResourceAsStream(file + ".json");
+                .getResourceAsStream("BrandonAubrey" + ".json");
         return new String(Objects.requireNonNull(sampleFile).readAllBytes(), Charset.defaultCharset());
     }
 
     @Test
     void testSetPlayerStatsBrandonAubreyKicking() throws IOException {
-        Player brandon = new Player();
-        brandon.setPlayerStats(readSampleFileAsString("BrandonAubrey"));
-        Assertions.assertEquals(1, brandon.playerStats.get("weekFgMade"));
+        Player brandon = new Player("Brandon", null);
+        brandon.setPlayerStats(readSampleFileAsString());
+        Assertions.assertEquals(17, brandon.getPlayerStats().get("seasonFgMade"));
     }
 }

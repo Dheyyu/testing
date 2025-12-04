@@ -1,11 +1,10 @@
 package edu.bsu.cs222.model;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import io.github.cdimascio.dotenv.DotenvException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -19,326 +18,250 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 
 public class Player {
-    private static final String API_KEY = Dotenv.load().get("API_KEY");
-    private String name;
-    private String shortName;
-    private Position position;
-    private String team;
-    private String jerseyNumber;
-    private String height;
-    private String weight;
-    private String age;
-    private String headshot;
-    private JSONObject injury;
-    private String school;
-    private String playerID;
-    private String teamID;
-    private String experience;
-    private String bDay;
-    //Above are stats shown from player list, below are stats which require a deeper API call.
-    private int passAtt;
-    private int completions;
-    private LocalDate lastScoreDate;
-    public HashMap <String, Integer> playerStats = new HashMap<>();
+    private static final String[] statsLabels = {"RecYds", "RecTD", "Receptions", "RushYds", "RushTD", "PassYds", "PassTD",
+            "Interceptions", "FgMade", "FgAttempts", "XpMade", "XpAttempts", "Fumbles"};
 
-
-    public Player(String name, Position position, String team, String jerseyNumber, String height,
-                  String weight, String age, String bDay, String headshot, JSONObject injury, String school,
-                  String playerID, String teamID, String experience) {
-        this.name = name;
-        this.position = position;
-        this.team = team;
-        this.jerseyNumber = jerseyNumber;
-        this.height = height;
-        this.weight = weight;
-        this.age = age;
-        this.headshot = headshot;
-        this.injury = injury;
-        this.school = school;
-        this.playerID = playerID;
-        this.teamID = teamID;
-        this.experience = experience;
-        this.bDay = bDay;
-
-        this.shortName = name.charAt(0) + ". " + name.split(" ")[1];
-    }
-
-    public Player(String name){
-        this.name = name;
-        this.shortName = name.charAt(0) + ". " + name.split(" ")[1];
-    }
-
-    public Player (String name, String playerID) {
-        this.name = name;
-        this.playerID = playerID;
-    }
-
-    public Player(){}
-
-    public String getName() {
-        return name;
-    }
-
-    public Position getPosition() {
-        return position;
-    }
-
-    public String getTeam() {
-        return team;
-    }
-
-    public String getJerseyNumber() {
-        return jerseyNumber;
-    }
-
-    public String getHeight() {
-        return height;
-    }
-
-    public String getWeight() {
-        return weight;
-    }
-
-    public String getAge() {
-        return age;
-    }
-
-    public String getHeadshot() {
-        return headshot;
-    }
-
-    public String getSchool() {
-        return school;
-    }
-
-    public String getPlayerID() {
-        return playerID;
-    }
-
-    public String getTeamID() {
-        return teamID;
-    }
-
-    public String getExperience() {
-        return experience;
-    }
-
-    public void setPassAtt(int passAtt) {
-        this.passAtt = passAtt;
-    }
-
-    public void setCompletions(int completions) {
-        this.completions = completions;
-    }
-
-    public double getCompletionPCT(){
-        double compPCT = (double)this.completions / this.passAtt;
-        return  (Math.round(compPCT *1000) / 1000.0);
-    }
-
-    public double getWeekScore() {
-        return ((playerStats.get("weekRushYds")+playerStats.get("weekRecYds")) * 0.1 +
-                (playerStats.get("weekRushTD")+playerStats.get("weekRecTD"))*7
-                + playerStats.get("weekPassTD") * 4 + playerStats.get("weekPassYds") *0.04 +
-                playerStats.get("weekReceptions") - playerStats.get("weekInterceptions")*2 - playerStats.get("weekFumbles")*2
-        - playerStats.get("weekXpAttempts") + playerStats.get("weekXpMade")*2 -
-                playerStats.get("weekFgAttempts") + playerStats.get("weekFgMade")*4);
-    }
-
-    public double getSeasonScore() {
-        return ((playerStats.get("seasonRushYds")+playerStats.get("seasonRecYds")) * 0.1 +
-                (playerStats.get("seasonRushTD")+playerStats.get("seasonRecTD"))*7
-                + playerStats.get("seasonPassTD") * 4 + playerStats.get("seasonPassYds") *0.04 +
-                playerStats.get("seasonReceptions") - playerStats.get("seasonInterceptions")*2 - playerStats.get("seasonFumbles")*2
-                - playerStats.get("seasonXpAttempts") + playerStats.get("seasonXpMade")*2 -
-                playerStats.get("seasonFgAttempts") + playerStats.get("seasonFgMade")*4);
-    }
-
-    public String getShortName() {
-        return shortName;
-    }
-
-    public JSONObject getInjury() {
-        return injury;
-    }
-
-    public String getbDay() {
-        return bDay;
-    }
-
-    private String getStatsFromAPI() throws InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForPlayer?playerID="+playerID+"&itemFormat=list&numberOfGames=20"))
-                .header("x-rapidapi-key", API_KEY)
-                .header("x-rapidapi-host", "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com")
-                .method("GET", HttpRequest.BodyPublishers.noBody())
-                .build();
+    private static String API_KEY;
+    static {
         try {
-            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-            return response.body();
-        }
-        catch (IOException e){
-            //Can't truly be tested
-            return "Network Error";
+            API_KEY = Dotenv.load().get("API_KEY");
+        } catch (DotenvException _) {
+            System.out.println("Add your API key to .env.example, and rename file to .env");
         }
     }
 
-    public void setPlayerStats(HashMap<String, Integer> playerStats){
-        this.playerStats = playerStats;
+    private Position position;
+    private final String playerID;
+    private final HashMap <String, String> nonScoringStats = new HashMap<>();
+    //Above are stats shown from player list, below are stats which require a deeper API call.
+    private HashMap <String, Integer> playerStats = new HashMap<>();
+    private String lastGame;
+    private LocalDate lastStatDate;
+
+
+    public Player(HashMap<String, String> playerInfo) {
+        nonScoringStats.put("name", playerInfo.get("playerName"));
+        this.position = Position.valueOf(playerInfo.get("position"));
+        nonScoringStats.put("team", playerInfo.get("team"));
+        nonScoringStats.put("jerseyNumber", playerInfo.get("jerseyNumber"));
+        nonScoringStats.put("height", playerInfo.get("height"));
+        nonScoringStats.put("weight", playerInfo.get("weight"));
+        nonScoringStats.put("age", playerInfo.get("age"));
+        nonScoringStats.put("headshot", playerInfo.get("headshot"));
+        nonScoringStats.put("school", playerInfo.get("school"));
+        this.playerID = playerInfo.get("playerID");
+        nonScoringStats.put("experience", playerInfo.get("experience"));
+    }
+
+    //Scoring methods
+    public double getWeekScore(HashMap<String, Double> coefficientMap) {
+        return (playerStats.get("weekRushYds") * coefficientMap.get("rushYards") +
+                playerStats.get("weekRecYds") * coefficientMap.get("recYards") +
+                playerStats.get("weekRushTD") * coefficientMap.get("rushTds") +
+                playerStats.get("weekRecTD") * coefficientMap.get("recTds") +
+                playerStats.get("weekPassTD") * coefficientMap.get("passTds") +
+                playerStats.get("weekPassYds") * coefficientMap.get("passYards") +
+                playerStats.get("weekReceptions") * coefficientMap.get("receptions") +
+                playerStats.get("weekInterceptions") * coefficientMap.get("interceptions") +
+                playerStats.get("weekFumbles") * coefficientMap.get("fumbles") -
+                playerStats.get("weekXpAttempts") + playerStats.get("weekXpMade") * coefficientMap.get("xpMade") -
+                playerStats.get("weekFgAttempts") + playerStats.get("weekFgMade") * coefficientMap.get("fgMade"));
+    }
+
+    public double getSeasonScore(HashMap<String, Double> coefficientMap) {
+        return (playerStats.get("seasonRushYds") * coefficientMap.get("rushYards") +
+                playerStats.get("seasonRecYds") * coefficientMap.get("recYards") +
+                playerStats.get("seasonRushTD") * coefficientMap.get("rushTds") +
+                playerStats.get("seasonRecTD") * coefficientMap.get("recTds") +
+                playerStats.get("seasonPassTD") * coefficientMap.get("passTds") +
+                playerStats.get("seasonPassYds") * coefficientMap.get("passYards") +
+                playerStats.get("seasonReceptions") * coefficientMap.get("receptions") +
+                playerStats.get("seasonInterceptions") * coefficientMap.get("interceptions") +
+                playerStats.get("seasonFumbles") * coefficientMap.get("fumbles") -
+                playerStats.get("seasonXpAttempts") + playerStats.get("seasonXpMade") * coefficientMap.get("xpMade") -
+                playerStats.get("seasonFgAttempts") + playerStats.get("seasonFgMade") * coefficientMap.get("fgMade"));
+    }
+
+    public void setStatsWithAPI() throws Exception {
+        if (!lastScoreDateIsToday()){
+            String response = getStatsFromAPI();
+            if (response != null && !response.isBlank()){
+                setPlayerStats(response);
+            }
+        }
     }
 
     public void setPlayerStats(String jsonData){
         JSONArray playerGames = new JSONObject(jsonData).getJSONArray("body");
-        JSONObject recentGame = playerGames.getJSONObject(0);
         JSONObject currentStats;
 
         LocalDate today = LocalDate.now();
-        lastScoreDate = today;
+        lastStatDate = today;
         int seasonYear = today.getMonthValue() >= Month.SEPTEMBER.getValue() ? today.getYear() : today.getYear() - 1;
         LocalDate seasonStart = LocalDate.of(seasonYear, Month.SEPTEMBER, 1).with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY));
         LocalDate weekStart = today.getDayOfWeek() == DayOfWeek.TUESDAY ? today : today.with(TemporalAdjusters.previous(DayOfWeek.TUESDAY));
 
-        playerStats.put("weekRecYds", 0);
-        playerStats.put("weekRecTD", 0);
-        playerStats.put("weekReceptions", 0);
-        playerStats.put("weekRushYds", 0);
-        playerStats.put("weekRushTD", 0);
-        playerStats.put("weekPassYds", 0);
-        playerStats.put("weekPassTD", 0);
-        playerStats.put("weekInterceptions", 0);
-        playerStats.put("weekFgMade", 0);
-        playerStats.put("weekFgAttempts", 0);
-        playerStats.put("weekXpMade", 0);
-        playerStats.put("weekXpAttempts", 0);
-        playerStats.put("weekFumbles", 0);
+        for (String stat: statsLabels){
+            playerStats.put(String.format("week%s", stat), 0);
+            playerStats.put(String.format("season%s", stat), 0);
+        }
 
-        int seasonRecYds = 0;
-        int seasonRecTD = 0;
-        int seasonReceptions = 0;
-        int seasonRushYds = 0;
-        int seasonRushTD = 0;
-        int seasonPassYds = 0;
-        int seasonPassTD = 0;
-        int seasonInterceptions = 0;
-        int seasonFgMade = 0;
-        int seasonFgAttempts = 0;
-        int seasonXpMade = 0;
-        int seasonXpAttempts = 0;
-        int seasonFumbles = 0;
+        JSONObject game = playerGames.getJSONObject(0);
+        String gameID = game.getString("gameID");
+        lastGame = gameID.substring(9).replace("@", " vs ");
 
         for (Object gameObject : playerGames){
-            JSONObject game = (JSONObject) gameObject;
+            game = (JSONObject) gameObject;
             LocalDate gameDate = LocalDate.parse(game.getString("gameID").substring(0, 8), DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-            if(gameDate.isAfter(weekStart.with(TemporalAdjusters.previous(DayOfWeek.TUESDAY))) && gameDate.isBefore(weekStart)){
-                try {
-                    currentStats = recentGame.getJSONObject("Receiving"); //Receiving stats
-                    playerStats.put("weekRecYds", Integer.parseInt(currentStats.getString("recYds")));
-                    playerStats.put("weekRecTD", Integer.parseInt(currentStats.getString("recTD")));
-                    playerStats.put("weekReceptions", Integer.parseInt(currentStats.getString("receptions")));
-                } catch (JSONException ignored) {}
-
-                try {
-                    currentStats = recentGame.getJSONObject("Rushing"); //Rushing stats
-                    playerStats.put("weekRushYds", Integer.parseInt(currentStats.getString("rushYds")));
-                    playerStats.put("weekRushTD", Integer.parseInt(currentStats.getString("rushTD")));
-                } catch (JSONException ignored) {}
-
-                try {
-                    currentStats = recentGame.getJSONObject("Passing"); //Passing stats
-                    playerStats.put("weekPassYds", Integer.parseInt(currentStats.getString("passYds")));
-                    playerStats.put("weekPassTD", Integer.parseInt(currentStats.getString("passTD")));
-                    playerStats.put("weekInterceptions", Integer.parseInt(currentStats.getString("int")));
-                } catch (JSONException ignored) {}
-
-                try{
-                    currentStats = recentGame.getJSONObject("Kicking"); //Passing stats
-                    playerStats.put("weekFgMade", Integer.parseInt(currentStats.getString("fgMade")));
-                    playerStats.put("weekFgAttempts", Integer.parseInt(currentStats.getString("fgAttempts")));
-                    playerStats.put("weekXpMade", Integer.parseInt(currentStats.getString("xpMade")));
-                    playerStats.put("weekXpAttempts", Integer.parseInt(currentStats.getString("xpAttempts")));
-                } catch (JSONException ignored) {}
-
-                try{
-                    currentStats = recentGame.getJSONObject("Defense"); //For fumbles
-                    playerStats.put("weekFumbles", Integer.parseInt(currentStats.getString("fumblesLost")));
-                } catch (JSONException ignored) {}
-            }
+            boolean thisWeekGame = gameDate.isAfter(weekStart.with(TemporalAdjusters.previous(DayOfWeek.TUESDAY))) && gameDate.isBefore(weekStart);
 
             if (gameDate.isAfter(seasonStart)){
                 try {
                     currentStats = game.getJSONObject("Receiving"); //Receiving stats
-                    seasonRecYds += Integer.parseInt(currentStats.getString("recYds"));
-                    seasonRecTD += Integer.parseInt(currentStats.getString("recTD"));
-                    seasonReceptions += Integer.parseInt(currentStats.getString("receptions"));
+                    int recYds = Integer.parseInt(currentStats.getString("recYds"));
+                    int recTD = Integer.parseInt(currentStats.getString("recTD"));
+                    int receptions = Integer.parseInt(currentStats.getString("receptions"));
+
+                    updateSeasonStat("RecYds", recYds);
+                    updateSeasonStat("RecTD", recTD);
+                    updateSeasonStat("Receptions", receptions);
+
+                    if (thisWeekGame){
+                        playerStats.put("weekRecYds", recYds);
+                        playerStats.put("weekRecTD", recTD);
+                        playerStats.put("weekReceptions", receptions);
+                    }
+
                 } catch (JSONException ignored) {}
 
                 try {
                     currentStats = game.getJSONObject("Rushing"); //Rushing stats
-                    seasonRushYds += Integer.parseInt(currentStats.getString("rushYds"));
-                    seasonRushTD += Integer.parseInt(currentStats.getString("rushTD"));
+                    int rushYds = Integer.parseInt(currentStats.getString("rushYds"));
+                    int rushTD = Integer.parseInt(currentStats.getString("rushTD"));
+
+                    updateSeasonStat("RushYds", rushYds);
+                    updateSeasonStat("RushTD", rushTD);
+
+                    if (thisWeekGame){
+                        playerStats.put("weekRushYds", rushYds);
+                        playerStats.put("weekRushTD", rushTD);
+                    }
+
                 } catch (JSONException ignored) {}
 
                 try {
                     currentStats = game.getJSONObject("Passing"); //Passing stats
-                    seasonPassYds += Integer.parseInt(currentStats.getString("passYds"));
-                    seasonPassTD += Integer.parseInt(currentStats.getString("passTD"));
-                    seasonInterceptions += Integer.parseInt(currentStats.getString("int"));
+                    int passYds = Integer.parseInt(currentStats.getString("passYds"));
+                    int passTD = Integer.parseInt(currentStats.getString("passTD"));
+                    int interceptions = Integer.parseInt(currentStats.getString("int"));
+
+                    updateSeasonStat("PassYds", passYds);
+                    updateSeasonStat("PassTD", passTD);
+                    updateSeasonStat("Interceptions", interceptions);
+
+                    if(thisWeekGame){
+                        playerStats.put("weekPassYds", passYds);
+                        playerStats.put("weekPassTD", passTD);
+                        playerStats.put("weekInterceptions", interceptions);
+                    }
+
                 } catch (JSONException ignored) {}
 
                 try{
                     currentStats = game.getJSONObject("Kicking"); //Kicking stats
-                    seasonFgMade += Integer.parseInt(currentStats.getString("fgMade"));
-                    seasonFgAttempts += Integer.parseInt(currentStats.getString("fgAttempts"));
-                    seasonXpMade += Integer.parseInt(currentStats.getString("xpMade"));
-                    seasonXpAttempts += Integer.parseInt(currentStats.getString("xpAttempts"));
+                    int fgMade = Integer.parseInt(currentStats.getString("fgMade"));
+                    int fgAttempts = Integer.parseInt(currentStats.getString("fgAttempts"));
+                    int xpMade = Integer.parseInt(currentStats.getString("xpMade"));
+                    int xpAttempts = Integer.parseInt(currentStats.getString("xpAttempts"));
+
+                    updateSeasonStat("FgMade", fgMade);
+                    updateSeasonStat("FgAttempts", fgAttempts);
+                    updateSeasonStat("XpMade", xpMade);
+                    updateSeasonStat("XpAttempts", xpAttempts);
+
+                    if(thisWeekGame){
+                        playerStats.put("weekFgMade", fgMade);
+                        playerStats.put("weekFgAttempts", fgAttempts);
+                        playerStats.put("weekXpMade", xpMade);
+                        playerStats.put("weekXpAttempts", xpAttempts);
+                    }
+
                 } catch (JSONException ignored) {}
 
                 try{
                     currentStats = game.getJSONObject("Defense"); //For fumbles
-                    seasonFumbles += Integer.parseInt(currentStats.getString("fumblesLost"));
+                    int fumbles = Integer.parseInt(currentStats.getString("fumblesLost"));
+
+                    updateSeasonStat("Fumbles", fumbles);
+
+                    if(thisWeekGame){
+                        playerStats.put("weekFumbles", fumbles);
+                    }
+
                 } catch (JSONException ignored) {}
             }
             else {
                 break;
             }
         }
-
-        playerStats.put("seasonRecYds", seasonRecYds);
-        playerStats.put("seasonRecTD", seasonRecTD);
-        playerStats.put("seasonReceptions", seasonReceptions);
-        playerStats.put("seasonRushYds", seasonRushYds);
-        playerStats.put("seasonRushTD", seasonRushTD);
-        playerStats.put("seasonPassYds", seasonPassYds);
-        playerStats.put("seasonPassTD", seasonPassTD);
-        playerStats.put("seasonInterceptions", seasonInterceptions);
-        playerStats.put("seasonFgMade", seasonFgMade);
-        playerStats.put("seasonFgAttempts", seasonFgAttempts);
-        playerStats.put("seasonXpMade", seasonXpMade);
-        playerStats.put("seasonXpAttempts", seasonXpAttempts);
-        playerStats.put("seasonFumbles", seasonFumbles);
     }
 
-    public boolean setStatsWithAPI() throws InterruptedException {
-        if (!lastScoreDateIsToday()){
-            String response = getStatsFromAPI();
-            if (response.equals("Network Error")){
-                //Can't be tested
-                return true;
-            }
-            setPlayerStats(response);
-        }
-        return false;
+    private void updateSeasonStat(String stat, int updateValue){
+        stat = String.format("season%s", stat);
+        playerStats.put(stat, playerStats.get(stat) + updateValue);
     }
 
+    private String getStatsFromAPI() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(String.format("https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForPlayer?playerID=%s&itemFormat=list&numberOfGames=20", playerID)))
+                .header("x-rapidapi-key", API_KEY)
+                .header("x-rapidapi-host", "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com")
+                .method("GET", HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body();
+    }
+
+    private boolean lastScoreDateIsToday(){
+        return lastStatDate != null && lastStatDate.equals(LocalDate.now());
+    }
+
+    // Getters
     public HashMap<String, Integer> getPlayerStats() {
         return playerStats;
     }
 
-    private boolean lastScoreDateIsToday(){
-        return lastScoreDate != null && lastScoreDate.equals(LocalDate.now());
+    public HashMap<String, String> getNonScoringStats(){
+        return nonScoringStats;
     }
 
+    public String getLastGame() {
+        return lastGame;
+    }
+
+    public Position getPosition() {
+        return position;
+    }
+
+    public String getPlayerID() {
+        return playerID;
+    }
+    //Constructors and Setters for tests
+    public Player (String name, String playerID) {
+        nonScoringStats.put("name", name);
+        this.playerID = playerID;
+    }
+
+    public void setPlayerStats(HashMap<String, Integer> playerStats){
+        this.playerStats = playerStats;
+    }
+
+    public void setLastStatDate(LocalDate lastStatDate) {
+        this.lastStatDate = lastStatDate;
+    }
+
+
+    //Functions to set player equality by id
     @Override
     public boolean equals(Object object){
         if (this == object) {return true;}
@@ -351,9 +274,5 @@ public class Player {
     @Override
     public int hashCode() {
         return Objects.hash(playerID);
-    }
-
-    public void setLastScoreDate(LocalDate lastScoreDate) {
-        this.lastScoreDate = lastScoreDate;
     }
 }

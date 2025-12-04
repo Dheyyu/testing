@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox alignment="CENTER_LEFT" onMouseClicked="#viewPlayerStats" prefHeight="70" prefWidth="400" spacing="12" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="edu.bsu.cs222.gui.teamView.TeamViewCellController">
+
+<padding>
+    <Insets bottom="8" left="10" right="10" top="8" />
+</padding>
+
+<ImageView fx:id="headshot" fitHeight="54" fitWidth="54" pickOnBounds="true" preserveRatio="true" style="-fx-effect: dropshadow(one-pass-box, rgba(0,0,0,0.2), 3, 0, 0, 1);" />
+
+<VBox alignment="CENTER_LEFT" spacing="2">
+    <Label fx:id="nameLbl" style="-fx-font-weight: bold; -fx-text-fill: black;" text="Player Name" />
+    <Label fx:id="detailsLbl" style="-fx-text-fill: #555555;" text="Team • Position" />
+    <Label fx:id="statsLbl" style="-fx-text-fill: #777777;" text="Stats Summary" />
+</VBox>
+    <VBox alignment="CENTER" layoutX="87.0" layoutY="18.0" spacing="2">
+        <Label alignment="CENTER" contentDisplay="TOP" style="-fx-font-weight: bold; -fx-text-fill: black;" text="Score" />
+        <Label fx:id="seasonLbl" style="-fx-text-fill: #555555;" text="Season:" />
+        <Label fx:id="lastWeekLbl" style="-fx-text-fill: #555555;" text="Last Week:" />
+    </VBox>
+    <VBox alignment="CENTER" layoutX="182.0" layoutY="18.0" spacing="2">
+        <Label alignment="CENTER" contentDisplay="TOP" style="-fx-font-weight: bold; -fx-text-fill: black;"
+               text="Last Match"/>
+        <Label fx:id="lastMatchLbl" style="-fx-text-fill: #555555;"/>
+    </VBox>
+
+<Button alignment="CENTER" mnemonicParsing="false" onAction="#removePlayer" prefHeight="35" prefWidth="80" style="-fx-background-color: #4a4a4a; -fx-text-fill: white; -fx-background-radius: 6;" text="Remove">
+<tooltip>
+    <Tooltip text="Remove this player from your team" />
+</tooltip>
+</Button>
+</HBox>
